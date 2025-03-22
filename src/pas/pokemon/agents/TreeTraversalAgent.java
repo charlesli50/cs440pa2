@@ -84,8 +84,7 @@ public class TreeTraversalAgent
 
 			List<MoveView> possibleMoves = maxTeamPokemon.getAvailableMoves();
 			System.out.println("generating possible moves: ");
-			System.out.println(maxTeamIdx);
-			System.out.println(minTeamIdx);
+			System.out.println("Team 1: " +maxTeamIdx +" | " + "Team 2: " +minTeamIdx);
 
 			for(MoveView move : possibleMoves){
 				resultsArray.add(new MoveNode(state, move, maxTeamIdx, minTeamIdx));
@@ -139,11 +138,12 @@ public class TreeTraversalAgent
 				return null;
 			}
 
+			// MoveView selectedMove = minimaxTreeSearch(chanceNode, 5);
+
 			MoveNode selectedMove = nodeChildren.get(0);
 			for (MoveNode currMove : nodeChildren){
 				MoveView consideredMove = currMove.getCurrMove();
-				System.out.println(consideredMove.getName());
-				System.out.println("calculated utility: " + currMove.getAvgUtility());
+				System.out.println(consideredMove.getName() + " calculated utility: " + currMove.getAvgUtility());
 
 				if (currMove.getAvgUtility() > selectedMove.getAvgUtility()){
 					selectedMove = currMove;
@@ -156,21 +156,21 @@ public class TreeTraversalAgent
 
 		// should return a list of pairs of doubles with moveviews
 		// does this recursively
-		// private MoveView minimaxTreeSearch(BattleView rootView, int depth){
-		// 	if(depth == 0){
-		// 		return null;
-		// 	}
+		private MoveView minimaxTreeSearch(BattleView rootView, int depth){
+			if(depth == 0){
+				return null;
+			}
 
-		// 	BattleViewNode chanceNode = new BattleViewNode(rootView);
-		// 	List<MoveNode> nodeChildren = chanceNode.generateChildren();
+			BattleViewNode chanceNode = new BattleViewNode(rootView);
+			List<MoveNode> nodeChildren = chanceNode.generateChildren();
 
-		// 	if (nodeChildren.isEmpty()) {
-		// 		return null;
-		// 	}
+			if (nodeChildren.isEmpty()) {
+				return null;
+			}
 
-		// 	MoveNode selectedMove = nodeChildren.get(3);
-		// 	return selectedMove.getCurrMove();
-		// }
+			MoveNode selectedMove = nodeChildren.get(3);
+			return selectedMove.getCurrMove();
+		}
 
         @Override
         public Pair<MoveView, Long> call() throws Exception
@@ -239,15 +239,42 @@ public class TreeTraversalAgent
         // TODO: replace me! This code calculates the first-available pokemon.
         // It is likely a good idea to expand a bunch of trees with different choices as the active pokemon on your
         // team, and see which pokemon is your best choice by comparing the values of the root nodes.
-
+		Double maxUtility = Double.NEGATIVE_INFINITY;
+		int maxUtilityIdx = -1;
+		TeamView opponentTeamView = this.getOpponentTeamView(view);
+		PokemonView opponentActivePokemonView = opponentTeamView.getActivePokemonView();
         for(int idx = 0; idx < this.getMyTeamView(view).size(); ++idx)
         {
-            if(!this.getMyTeamView(view).getPokemonView(idx).hasFainted())
+			PokemonView curPokemon = this.getMyTeamView(view).getPokemonView(idx);
+            if(!curPokemon.hasFainted())
             {
-                return idx;
+				Double avgUtility = 0.0;
+				List<MoveView> availableMoves = curPokemon.getAvailableMoves();
+				int numCalculatedMoves = 0;
+				System.out.println(curPokemon.getName() +" has " +availableMoves.size() +" available moves");
+				for (MoveView move : availableMoves){
+					if (move.getName().equals("Pin Missile")) {
+						continue;
+					}
+					double util = 0;
+					for (Pair<Double, BattleView> result : move.getPotentialEffects(view, getMyTeamIdx(), 1 - getMyTeamIdx())){
+						if(result.getSecond() != null){
+							util += result.getFirst() * getBattleHeuristic(result.getSecond());
+						}
+					}
+					avgUtility += util;
+					numCalculatedMoves += 1;
+				}
+				avgUtility /= numCalculatedMoves;
+				System.out.println("Average Utility for " +curPokemon.getName() +": "+avgUtility);
+				if (avgUtility > maxUtility) {
+					maxUtility = avgUtility;
+					maxUtilityIdx = idx;
+				}
             }
         }
-        return null;
+		System.out.println(this.getMyTeamView(view).getPokemonView(maxUtilityIdx).getName() + " chosen");
+        return maxUtilityIdx;
     }
 
     /**
